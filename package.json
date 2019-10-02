@@ -36,20 +36,20 @@
     "valid-identifier": "0.0.2"
   },
   "devDependencies": {
-    "eslint": "^5.12.0",
-    "eslint-config-semistandard": "^13.0.0",
-    "eslint-config-standard": "^12.0.0",
-    "eslint-plugin-import": "^2.14.0",
-    "eslint-plugin-node": "^8.0.1",
-    "eslint-plugin-promise": "^4.0.1",
-    "eslint-plugin-standard": "^4.0.0",
+    "eslint": "^6.5.1",
+    "eslint-config-semistandard": "^15.0.0",
+    "eslint-config-standard": "^14.1.0",
+    "eslint-plugin-import": "^2.18.2",
+    "eslint-plugin-node": "^10.0.0",
+    "eslint-plugin-promise": "^4.2.1",
+    "eslint-plugin-standard": "^4.0.1",
     "jasmine": "^3.3.1",
     "nyc": "^13.1.0",
     "rewire": "^4.0.1"
   },
   "scripts": {
     "test": "npm run eslint && npm run cover",
-    "eslint": "eslint index.js spec/create.spec.js",
+    "eslint": "eslint index.js spec",
     "jasmine": "jasmine spec/create.spec.js",
     "cover": "nyc -x spec/ npm run jasmine"
   },

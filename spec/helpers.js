@@ -44,7 +44,7 @@ function createWithMockFetch (dir, id, name, cfg, events) {
         .and.callFake(() => Promise.resolve(mockFetchDest));
 
     fs.copySync(templateDir, mockFetchDest);
-    return createWith({fetch: fetchSpy})(dir, id, name, cfg, events)
+    return createWith({ fetch: fetchSpy })(dir, id, name, cfg, events)
         .then(() => fetchSpy);
 }
 
@@ -76,7 +76,7 @@ module.exports = {
 // Add the toExist matcher.
 beforeEach(function () {
     jasmine.addMatchers({
-        'toExist': function () {
+        toExist: function () {
             return {
                 compare: function (testPath) {
 
