@@ -50,7 +50,7 @@
   "scripts": {
     "test": "npm run eslint && npm run cover",
     "eslint": "eslint index.js spec",
-    "jasmine": "jasmine spec/create.spec.js",
+    "jasmine": "jasmine --config=spec/support/jasmine.json",
     "cover": "nyc -x spec/ npm run jasmine"
   },
   "contributors": [
