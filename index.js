@@ -18,21 +18,15 @@
 */
 
 const fs = require('fs-extra');
-
-var path = require('path');
-
-var tmp = require('tmp');
-var isUrl = require('is-url');
-var isObject = require('isobject');
-var pathIsInside = require('path-is-inside');
-var requireFresh = require('import-fresh');
-var validateIdentifier = require('valid-identifier');
-
-var fetch = require('cordova-fetch');
-var events = require('cordova-common').events;
-var CordovaError = require('cordova-common').CordovaError;
-var ConfigParser = require('cordova-common').ConfigParser;
-var CordovaLogger = require('cordova-common').CordovaLogger.get();
+const path = require('path');
+const tmp = require('tmp');
+const isUrl = require('is-url');
+const isObject = require('isobject');
+const pathIsInside = require('path-is-inside');
+const requireFresh = require('import-fresh');
+const validateIdentifier = require('valid-identifier');
+const fetch = require('cordova-fetch');
+const { CordovaError, ConfigParser, CordovaLogger, events } = require('cordova-common');
 
 const DEFAULT_VERSION = '1.0.0';
 
@@ -50,7 +44,7 @@ function setupEvents (externalEventEmitter) {
     // There is no logger if external emitter is not present,
     // so attach a console logger
     } else {
-        CordovaLogger.subscribe(events);
+        CordovaLogger.get().subscribe(events);
     }
     return events;
 }
@@ -78,106 +72,85 @@ function cordovaCreateLegacyAdapter (dir, id, name, cfg, extEvents) {
  * @param {Object} [opts={}]    options to be used for creating the project.
  * @returns {Promise}           Resolves when project creation has finished.
  */
-function cordovaCreate (dest, opts = {}) {
-    // TODO this is to avoid having a huge diff. Remove later.
-    let dir = dest;
+function cordovaCreate (dir, opts = {}) {
+    let event;
 
-    return Promise.resolve().then(function () {
-        if (!dir) {
-            throw new CordovaError('Directory not specified. See `cordova help`.');
-        }
+    return Promise.resolve()
+        .then(() => {
+            if (!dir) throw new CordovaError('Directory not specified. See `cordova help`.');
+            if (!isObject(opts)) throw new CordovaError('Given options must be an object');
 
-        if (!isObject(opts)) {
-            throw new CordovaError('Given options must be an object');
-        }
+            // Shallow copy opts
+            opts = Object.assign({}, opts);
 
-        // Shallow copy opts
-        opts = Object.assign({}, opts);
+            event = setupEvents(opts.extEvents);
+            event.emit('verbose', 'Using detached cordova-create');
 
-        events = setupEvents(opts.extEvents);
-        events.emit('verbose', 'Using detached cordova-create');
+            // Make absolute.
+            dir = path.resolve(dir);
 
-        // Make absolute.
-        dir = path.resolve(dir);
+            if (fs.existsSync(dir) && fs.readdirSync(dir).length > 0) throw new CordovaError('Path already exists and is not empty: ' + dir);
+            if (opts.id && !validateIdentifier(opts.id)) throw new CordovaError('App id contains a reserved word, or is not a valid identifier.');
 
-        if (fs.existsSync(dir) && fs.readdirSync(dir).length > 0) {
-            throw new CordovaError('Path already exists and is not empty: ' + dir);
-        }
+            // This was changed from "uri" to "url", but checking uri for backwards compatibility.
+            opts.url = opts.url || opts.uri;
 
-        if (opts.id && !validateIdentifier(opts.id)) {
-            throw new CordovaError('App id contains a reserved word, or is not a valid identifier.');
-        }
+            if (!opts.url) {
+                opts.url = require.resolve('cordova-app-hello-world');
+                opts.template = true;
+            }
 
-        // This was changed from "uri" to "url", but checking uri for backwards compatibility.
-        opts.url = opts.url || opts.uri;
-
-        if (!opts.url) {
-            opts.url = require.resolve('cordova-app-hello-world');
-            opts.template = true;
-        }
-
-        // Ensure that the destination is outside the template location
-        if (pathIsInside(dir, opts.url)) {
-            throw new CordovaError(
-                `Cannot create project "${dir}" inside the template used to create it "${opts.url}".`
-            );
-        }
-    })
-        .then(function () {
+            // Ensure that the destination is outside the template location
+            if (pathIsInside(dir, opts.url)) throw new CordovaError(`Cannot create project "${dir}" inside the template used to create it "${opts.url}".`);
+        })
+        .then(() => {
             // Finally, Ready to start!
-            events.emit('log', 'Creating a new cordova project.');
+            event.emit('log', 'Creating a new cordova project.');
 
             // If symlink, don't fetch
-            if (opts.link) {
-                return opts.url;
-            }
+            if (opts.link) return opts.url;
 
             // Use cordova-fetch to obtain npm or git templates
             if (opts.template && isRemoteUri(opts.url)) {
                 var target = opts.url;
-                events.emit('verbose', 'Using cordova-fetch for ' + target);
+                event.emit('verbose', 'Using cordova-fetch for ' + target);
                 return fetch(target, getSelfDestructingTempDir(), {});
             } else {
                 // If assets are not online, resolve as a relative path on local computer
                 return path.resolve(opts.url);
             }
         })
-        .then(function (input_directory) {
-            var import_from_path = input_directory;
+        .then(input_directory => {
+            let import_from_path = input_directory;
 
             // handle when input wants to specify sub-directory (specified in index.js as "dirname" export);
-            var isSubDir = false;
+            let isSubDir = false;
             try {
-                var templatePkg = requireFresh(input_directory);
+                const templatePkg = requireFresh(input_directory);
                 if (templatePkg && templatePkg.dirname) {
                     import_from_path = templatePkg.dirname;
                     isSubDir = true;
                 }
             } catch (e) {
-                events.emit('verbose', 'index.js does not specify valid sub-directory: ' + input_directory);
+                event.emit('verbose', `index.js does not specify valid sub-directory: ${input_directory}`);
                 isSubDir = false;
             }
 
-            if (!fs.existsSync(import_from_path)) {
-                throw new CordovaError('Could not find directory: ' +
-                    import_from_path);
-            }
+            if (!fs.existsSync(import_from_path)) throw new CordovaError(`Could not find directory: ${import_from_path}`);
 
-            var dirAlreadyExisted = fs.existsSync(dir);
-            if (!dirAlreadyExisted) {
-                fs.mkdirSync(dir);
-            }
+            const dirAlreadyExisted = fs.existsSync(dir);
+            if (!dirAlreadyExisted) fs.mkdirSync(dir);
 
             try {
                 // Copy files from template to project
                 if (opts.template) {
-                    events.emit('verbose', 'Copying assets.');
+                    event.emit('verbose', 'Copying assets.');
                     copyTemplateFiles(import_from_path, dir, isSubDir);
                 }
 
                 // If --link, link merges, hooks, www, and config.xml (and/or copy to root)
                 if (opts.link) {
-                    events.emit('verbose', 'Symlinking assets.');
+                    event.emit('verbose', 'Symlinking assets.');
                     linkFromTemplate(import_from_path, dir);
                 }
 
@@ -185,38 +158,30 @@ function cordovaCreate (dest, opts = {}) {
                 // TODO: get stock package.json if template does not contain package.json;
                 copyIfNotExists(stockAssetPath('www'), path.join(dir, 'www'));
                 copyIfNotExists(stockAssetPath('hooks'), path.join(dir, 'hooks'));
-                var configXmlExists = projectConfig(dir); // moves config to root if in www
-                if (!configXmlExists) {
-                    fs.copySync(stockAssetPath('config.xml'), path.join(dir, 'config.xml'));
-                }
+
+                // If config xml does not exist, copy stock config.xml
+                if (!projectConfig(dir)) fs.copySync(stockAssetPath('config.xml'), path.join(dir, 'config.xml'));
             } catch (e) {
-                if (!dirAlreadyExisted) {
-                    fs.removeSync(dir);
-                }
-                if (process.platform.slice(0, 3) === 'win' && e.code === 'EPERM') {
-                    throw new CordovaError('Symlinks on Windows require Administrator privileges');
-                }
+                if (!dirAlreadyExisted) fs.removeSync(dir);
+
+                if (process.platform.slice(0, 3) === 'win' && e.code === 'EPERM') throw new CordovaError('Symlinks on Windows require Administrator privileges');
+
                 throw e;
             }
 
-            var pkgjsonPath = path.join(dir, 'package.json');
+            const pkgjsonPath = path.join(dir, 'package.json');
+
             // Update package.json name and version fields
             if (fs.existsSync(pkgjsonPath)) {
-                var pkgjson = requireFresh(pkgjsonPath);
+                const pkgjson = requireFresh(pkgjsonPath);
 
                 // Pkjson.displayName should equal config's name.
-                if (opts.name) {
-                    pkgjson.displayName = opts.name;
-                }
-                // Pkjson.name should equal config's id.
-                if (opts.id) {
-                    pkgjson.name = opts.id.toLowerCase();
-                } else {
-                    // Use default name.
-                    pkgjson.name = 'helloworld';
-                }
+                if (opts.name) pkgjson.displayName = opts.name;
 
+                // Pkjson.name should equal config's id or uses default to name.
+                pkgjson.name = opts.id ? opts.id.toLowerCase() : 'helloworld';
                 pkgjson.version = DEFAULT_VERSION;
+
                 fs.writeFileSync(pkgjsonPath, JSON.stringify(pkgjson, null, 4), 'utf8');
             }
 
@@ -224,15 +189,15 @@ function cordovaCreate (dest, opts = {}) {
             fs.ensureDirSync(path.join(dir, 'platforms'));
             fs.ensureDirSync(path.join(dir, 'plugins'));
 
-            var configPath = path.join(dir, 'config.xml');
+            const configPath = path.join(dir, 'config.xml');
             // only update config.xml if not a symlink
             if (!fs.lstatSync(configPath).isSymbolicLink()) {
                 // Write out id, name and default version to config.xml
-                var conf = new ConfigParser(configPath);
-                if (opts.id) conf.setPackageName(opts.id);
-                if (opts.name) conf.setName(opts.name);
-                conf.setVersion(DEFAULT_VERSION);
-                conf.write();
+                const config = new ConfigParser(configPath);
+                if (opts.id) config.setPackageName(opts.id);
+                if (opts.name) config.setName(opts.name);
+                config.setVersion(DEFAULT_VERSION);
+                config.write();
             }
         });
 }
@@ -244,9 +209,7 @@ function cordovaCreate (dest, opts = {}) {
  * @return No return value
  */
 function copyIfNotExists (src, dst) {
-    if (!fs.existsSync(dst) && src) {
-        fs.copySync(src, dst);
-    }
+    if (!fs.existsSync(dst) && src) fs.copySync(src, dst);
 }
 
 /**
@@ -260,20 +223,29 @@ function copyIfNotExists (src, dst) {
  * isSubDir - boolean is true if template has subdirectory structure (see code around line 229)
  */
 function copyTemplateFiles (templateDir, projectDir, isSubDir) {
-    var copyPath;
-    // if template is a www dir
+    let copyPath;
+
     if (path.basename(templateDir) === 'www') {
+        // When the template is a "www" dir
         copyPath = path.resolve(templateDir);
         fs.copySync(copyPath, path.resolve(projectDir, 'www'));
     } else {
-        var templateFiles = fs.readdirSync(templateDir);
-        // Remove directories, and files that are unwanted
+        let templateFiles = fs.readdirSync(templateDir);
+
+        // Remove unwanted directories and files
         if (!isSubDir) {
-            var excludes = ['package.json', 'RELEASENOTES.md', '.git', 'NOTICE', 'LICENSE', 'COPYRIGHT', '.npmignore'];
-            templateFiles = templateFiles.filter(function (value) {
-                return excludes.indexOf(value) < 0;
-            });
+            // @TODO `package.json` is dropped when the `--template` flag is provided. This shouldnt happen...
+            templateFiles = templateFiles.filter(value => ![
+                'package.json',
+                'RELEASENOTES.md',
+                '.git',
+                'NOTICE',
+                'LICENSE',
+                'COPYRIGHT',
+                '.npmignore'
+            ].includes(value));
         }
+
         // Copy each template file after filter
         templateFiles.forEach(f => {
             copyPath = path.resolve(templateDir, f);
@@ -289,14 +261,16 @@ function copyTemplateFiles (templateDir, projectDir, isSubDir) {
  * @return {String or False} location of config file; if none exists, returns false
  */
 function projectConfig (projectDir) {
-    var rootPath = path.join(projectDir, 'config.xml');
-    var wwwPath = path.join(projectDir, 'www', 'config.xml');
-    if (fs.existsSync(rootPath)) {
-        return rootPath;
-    } else if (fs.existsSync(wwwPath)) {
+    const rootPath = path.join(projectDir, 'config.xml');
+    const wwwPath = path.join(projectDir, 'www', 'config.xml');
+
+    if (fs.existsSync(rootPath)) return rootPath;
+
+    if (fs.existsSync(wwwPath)) {
         fs.renameSync(wwwPath, rootPath);
         return wwwPath;
     }
+
     return false;
 }
 
@@ -307,15 +281,16 @@ function projectConfig (projectDir) {
  * If config.xml exists inside of template/www, COPY (not link) it to project/
  * */
 function linkFromTemplate (templateDir, projectDir) {
-    var linkSrc, linkDst, linkFolders, copySrc, copyDst;
+    let linkSrc, linkDst, copySrc;
+
     function rmlinkSync (src, dst, type) {
         if (src && dst) {
             fs.removeSync(dst);
-            if (fs.existsSync(src)) {
-                fs.symlinkSync(src, dst, type);
-            }
+
+            if (fs.existsSync(src)) fs.symlinkSync(src, dst, type);
         }
     }
+
     // if template is a www dir
     if (path.basename(templateDir) === 'www') {
         linkSrc = path.resolve(templateDir);
@@ -323,7 +298,8 @@ function linkFromTemplate (templateDir, projectDir) {
         rmlinkSync(linkSrc, linkDst, 'dir');
         copySrc = path.join(templateDir, 'config.xml');
     } else {
-        linkFolders = ['www', 'merges', 'hooks'];
+        const linkFolders = ['www', 'merges', 'hooks'];
+
         // Link each folder
         for (var i = 0; i < linkFolders.length; i++) {
             linkSrc = path.join(templateDir, linkFolders[i]);
@@ -336,24 +312,18 @@ function linkFromTemplate (templateDir, projectDir) {
         copySrc = path.join(templateDir, 'www', 'config.xml');
     }
     // if template/www/config.xml then copy to project/config.xml
-    copyDst = path.join(projectDir, 'config.xml');
+    const copyDst = path.join(projectDir, 'config.xml');
     if (!fs.existsSync(copyDst) && fs.existsSync(copySrc)) {
         fs.copySync(copySrc, copyDst);
     }
 }
 
-function stockAssetPath (p) {
-    return path.join(require('cordova-app-hello-world').dirname, p);
-}
+const stockAssetPath = p => path.join(require('cordova-app-hello-world').dirname, p);
 
 // Creates temp dir that is deleted on process exit
-function getSelfDestructingTempDir () {
-    return tmp.dirSync({
-        prefix: 'cordova-create-',
-        unsafeCleanup: true
-    }).name;
-}
+const getSelfDestructingTempDir = () => tmp.dirSync({
+    prefix: 'cordova-create-',
+    unsafeCleanup: true
+}).name;
 
-function isRemoteUri (uri) {
-    return isUrl(uri) || uri.includes('@') || !fs.existsSync(uri);
-}
+const isRemoteUri = uri => isUrl(uri) || uri.includes('@') || !fs.existsSync(uri);

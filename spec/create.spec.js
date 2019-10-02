@@ -18,15 +18,10 @@
 */
 
 const fs = require('fs-extra');
-
-var path = require('path');
-
-var requireFresh = require('import-fresh');
-
-var create = require('..');
-var events = require('cordova-common').events;
-var CordovaError = require('cordova-common').CordovaError;
-var ConfigParser = require('cordova-common').ConfigParser;
+const path = require('path');
+const requireFresh = require('import-fresh');
+const create = require('..');
+const { CordovaError, ConfigParser, events } = require('cordova-common');
 const { tmpDir, createWith, createWithMockFetch, expectRejection } = require('./helpers');
 
 const appName = 'TestBase';
@@ -35,33 +30,33 @@ const appVersion = '1.0.0';
 const project = path.join(tmpDir, appName);
 
 // Setup and teardown test dirs
-beforeEach(function () {
+beforeEach(() => {
     fs.emptyDirSync(tmpDir);
 });
-afterAll(function () {
+
+afterAll(() => {
     process.chdir(path.join(__dirname, '..')); // Needed to rm the dir on Windows.
     fs.removeSync(tmpDir);
 });
 
-describe('cordova create checks for valid-identifier', function () {
+describe('cordova create checks for valid-identifier', () => {
     const error = new CordovaError('is not a valid identifier');
 
-    it('should reject reserved words from start of id', function () {
+    it('should reject reserved words from start of id', () => {
         return expectRejection(create(project, 'int.bob', appName, {}, events), error);
     });
 
-    it('should reject reserved words from end of id', function () {
+    it('should reject reserved words from end of id', () => {
         return expectRejection(create(project, 'bob.class', appName, {}, events), error);
     });
 });
 
-describe('create end-to-end', function () {
+describe('create end-to-end', () => {
 
     function checkCommonArtifacts () {
         // Check that top level dirs exist
-        var dirs = ['hooks', 'platforms', 'plugins', 'www'];
-        dirs.forEach(function (d) {
-            expect(path.join(project, d)).toExist();
+        ['hooks', 'platforms', 'plugins', 'www'].forEach(dir => {
+            expect(path.join(project, dir)).toExist();
         });
 
         // Check that README.md exists inside of hooks
@@ -82,7 +77,7 @@ describe('create end-to-end', function () {
         expect(path.join(project, 'www', 'config.xml')).not.toExist();
 
         // Check that config.xml was updated correctly
-        var configXml = new ConfigParser(path.join(project, 'config.xml'));
+        const configXml = new ConfigParser(path.join(project, 'config.xml'));
         expect(configXml.packageName()).toEqual(appId);
         expect(configXml.name()).toEqual(appName);
         expect(configXml.version()).toEqual(appVersion);
@@ -128,16 +123,16 @@ describe('create end-to-end', function () {
         checkDefaultTemplate();
     }
 
-    it('should successfully run without template and use default hello-world app', function () {
+    it('should successfully run without template and use default hello-world app', () => {
         // Create a real project with no template
         // use default cordova-app-hello-world app
         return create(project, appId, appName, {}, events)
             .then(checkProjectCreatedWithDefaultTemplate);
     });
 
-    it('should successfully run with Git URL', function () {
+    it('should successfully run with Git URL', () => {
         // Create a real project with git URL as template
-        var config = {
+        const config = {
             lib: {
                 www: {
                     url: 'https://github.com/apache/cordova-app-hello-world',
@@ -145,6 +140,7 @@ describe('create end-to-end', function () {
                 }
             }
         };
+
         return createWithMockFetch(project, appId, appName, config, events)
             .then(fetchSpy => {
                 expect(fetchSpy).toHaveBeenCalledTimes(1);
@@ -153,9 +149,9 @@ describe('create end-to-end', function () {
             .then(checkProjectCreatedWithDefaultTemplate);
     });
 
-    it('should successfully run with NPM package (specific version)', function () {
+    it('should successfully run with NPM package (specific version)', () => {
         // Create a real project with npm module as template
-        var config = {
+        const config = {
             lib: {
                 www: {
                     template: true,
@@ -163,6 +159,7 @@ describe('create end-to-end', function () {
                 }
             }
         };
+
         return createWithMockFetch(project, appId, appName, config, events)
             .then(fetchSpy => {
                 expect(fetchSpy).toHaveBeenCalledTimes(1);
@@ -171,9 +168,9 @@ describe('create end-to-end', function () {
             .then(checkProjectCreatedWithDefaultTemplate);
     });
 
-    it('should successfully run with NPM package (no specific version)', function () {
+    it('should successfully run with NPM package (no specific version)', () => {
         // Create a real project with npm module as template
-        var config = {
+        const config = {
             lib: {
                 www: {
                     template: true,
@@ -181,6 +178,7 @@ describe('create end-to-end', function () {
                 }
             }
         };
+
         return createWithMockFetch(project, appId, appName, config, events)
             .then(fetchSpy => {
                 expect(fetchSpy).toHaveBeenCalledTimes(1);
@@ -189,8 +187,8 @@ describe('create end-to-end', function () {
             .then(checkProjectCreatedWithDefaultTemplate);
     });
 
-    it('should successfully run with template not having a package.json at toplevel', function () {
-        var config = {
+    it('should successfully run with template not having a package.json at toplevel', () => {
+        const config = {
             lib: {
                 www: {
                     template: true,
@@ -198,12 +196,13 @@ describe('create end-to-end', function () {
                 }
             }
         };
+
         return create(project, appId, appName, config, events)
             .then(checkProjectCreatedWithFixtureTemplate);
     });
 
-    it('should successfully run with template having package.json and no sub directory', function () {
-        var config = {
+    it('should successfully run with template having package.json and no sub directory', () => {
+        const config = {
             lib: {
                 www: {
                     template: true,
@@ -211,12 +210,13 @@ describe('create end-to-end', function () {
                 }
             }
         };
+
         return create(project, appId, appName, config, events)
             .then(checkProjectCreatedWithFixtureTemplate);
     });
 
-    it('should successfully run with template having package.json, and subdirectory, and no package.json in subdirectory', function () {
-        var config = {
+    it('should successfully run with template having package.json, and subdirectory, and no package.json in subdirectory', () => {
+        const config = {
             lib: {
                 www: {
                     template: true,
@@ -224,12 +224,13 @@ describe('create end-to-end', function () {
                 }
             }
         };
+
         return create(project, appId, appName, config, events)
             .then(checkProjectCreatedWithFixtureTemplate);
     });
 
-    it('should successfully run with template having package.json, and subdirectory, and package.json in subdirectory', function () {
-        var config = {
+    it('should successfully run with template having package.json, and subdirectory, and package.json in subdirectory', () => {
+        const config = {
             lib: {
                 www: {
                     template: true,
@@ -237,14 +238,15 @@ describe('create end-to-end', function () {
                 }
             }
         };
+
         return create(project, appId, appName, config, events)
             .then(checkCommonArtifacts)
             .then(checkPackageJson)
             .then(checkNotDefaultTemplate);
     });
 
-    it('should successfully run config.xml in the www folder and move it outside', function () {
-        var config = {
+    it('should successfully run config.xml in the www folder and move it outside', () => {
+        const config = {
             lib: {
                 www: {
                     template: true,
@@ -252,12 +254,13 @@ describe('create end-to-end', function () {
                 }
             }
         };
+
         return create(project, appId, appName, config, events)
             .then(checkProjectCreatedWithFixtureTemplate);
     });
 
-    it('should successfully run with www folder as the template', function () {
-        var config = {
+    it('should successfully run with www folder as the template', () => {
+        const config = {
             lib: {
                 www: {
                     template: true,
@@ -265,20 +268,22 @@ describe('create end-to-end', function () {
                 }
             }
         };
+
         return create(project, appId, appName, config, events)
             .then(checkProjectCreatedWithFixtureTemplate);
     });
 
-    it('should successfully run with existing, empty destination', function () {
+    it('should successfully run with existing, empty destination', () => {
         fs.ensureDirSync(project);
         return create(project, appId, appName, {}, events)
             .then(checkProjectCreatedWithDefaultTemplate);
     });
 
-    describe('when --link-to is provided', function () {
+    describe('when --link-to is provided', () => {
         function allowSymlinkErrorOnWindows (err) {
             const onWindows = process.platform.slice(0, 3) === 'win';
             const isSymlinkError = err && String(err.message).startsWith('Symlinks on Windows');
+
             if (onWindows && isSymlinkError) {
                 pending(err.message);
             } else {
@@ -286,13 +291,13 @@ describe('create end-to-end', function () {
             }
         }
 
-        it('when passed www folder should not move www/config.xml, only copy and update', function () {
+        it('when passed www folder should not move www/config.xml, only copy and update', () => {
             function checkSymWWW () {
                 // Check if top level dirs exist.
-                var dirs = ['hooks', 'platforms', 'plugins', 'www'];
-                dirs.forEach(function (d) {
-                    expect(path.join(project, d)).toExist();
+                ['hooks', 'platforms', 'plugins', 'www'].forEach(dir => {
+                    expect(path.join(project, dir)).toExist();
                 });
+
                 expect(path.join(project, 'hooks', 'README.md')).toExist();
 
                 // Check if www files exist.
@@ -301,7 +306,7 @@ describe('create end-to-end', function () {
                 // Check www/config exists
                 expect(path.join(project, 'www', 'config.xml')).toExist();
                 // Check www/config.xml was not updated.
-                var configXml = new ConfigParser(path.join(project, 'www', 'config.xml'));
+                let configXml = new ConfigParser(path.join(project, 'www', 'config.xml'));
                 expect(configXml.packageName()).toEqual('io.cordova.hellocordova');
                 expect(configXml.version()).toEqual('0.0.1');
                 expect(configXml.description()).toEqual('this is the correct config.xml');
@@ -323,7 +328,7 @@ describe('create end-to-end', function () {
                 expect(fs.lstatSync(path.join(project, 'hooks')).isSymbolicLink()).not.toBe(true);
                 expect(fs.lstatSync(path.join(project, 'config.xml')).isSymbolicLink()).not.toBe(true);
             }
-            var config = {
+            const config = {
                 lib: {
                     www: {
                         template: true,
@@ -332,18 +337,19 @@ describe('create end-to-end', function () {
                     }
                 }
             };
+
             return create(project, appId, appName, config, events)
                 .then(checkSymWWW)
                 .catch(allowSymlinkErrorOnWindows);
         });
 
-        it('with subdirectory should not update symlinked project/config.xml', function () {
+        it('with subdirectory should not update symlinked project/config.xml', () => {
             function checkSymSubDir () {
                 // Check if top level dirs exist.
-                var dirs = ['hooks', 'platforms', 'plugins', 'www'];
-                dirs.forEach(function (d) {
-                    expect(path.join(project, d)).toExist();
+                ['hooks', 'platforms', 'plugins', 'www'].forEach(dir => {
+                    expect(path.join(project, dir)).toExist();
                 });
+
                 expect(path.join(project, 'hooks', 'README.md')).toExist();
 
                 // index.js and template subdir folder should not exist (inner files should be copied to the project folder)
@@ -358,7 +364,7 @@ describe('create end-to-end', function () {
                 expect(fs.lstatSync(path.join(project, 'config.xml')).isSymbolicLink()).toBe(true);
 
                 // Check that config.xml was not updated. (symlinked config does not get updated!)
-                var configXml = new ConfigParser(path.join(project, 'config.xml'));
+                const configXml = new ConfigParser(path.join(project, 'config.xml'));
                 expect(configXml.packageName()).toEqual('io.cordova.hellocordova');
                 expect(configXml.version()).toEqual('0.0.1');
 
@@ -366,12 +372,13 @@ describe('create end-to-end', function () {
                 expect(configXml.description()).toEqual('this is the correct config.xml');
 
                 // Check that we got package.json (the correct one) and it was changed
-                var pkjson = requireFresh(path.join(project, 'package.json'));
+                const pkjson = requireFresh(path.join(project, 'package.json'));
                 // Pkjson.name should equal config's id.
                 expect(pkjson.name).toEqual(appId.toLowerCase());
                 expect(pkjson.valid).toEqual('true');
             }
-            var config = {
+
+            const config = {
                 lib: {
                     www: {
                         template: true,
@@ -380,17 +387,17 @@ describe('create end-to-end', function () {
                     }
                 }
             };
+
             return create(project, appId, appName, config, events)
                 .then(checkSymSubDir)
                 .catch(allowSymlinkErrorOnWindows);
         });
 
-        it('with no config should create one and update it', function () {
+        it('with no config should create one and update it', () => {
             function checkSymNoConfig () {
                 // Check if top level dirs exist.
-                var dirs = ['hooks', 'platforms', 'plugins', 'www'];
-                dirs.forEach(function (d) {
-                    expect(path.join(project, d)).toExist();
+                ['hooks', 'platforms', 'plugins', 'www'].forEach(dir => {
+                    expect(path.join(project, dir)).toExist();
                 });
                 expect(path.join(project, 'hooks', 'hooks.file')).toExist();
                 expect(path.join(project, 'merges', 'merges.file')).toExist();
@@ -399,7 +406,7 @@ describe('create end-to-end', function () {
                 expect(path.join(project, 'www', 'index.html')).toExist();
 
                 // Check that config.xml was updated.
-                var configXml = new ConfigParser(path.join(project, 'config.xml'));
+                const configXml = new ConfigParser(path.join(project, 'config.xml'));
                 expect(configXml.packageName()).toEqual(appId);
 
                 // Check that www, hooks, merges are really a symlink; config is not
@@ -409,7 +416,7 @@ describe('create end-to-end', function () {
                 expect(fs.lstatSync(path.join(project, 'config.xml')).isSymbolicLink()).not.toBe(true);
             }
 
-            var config = {
+            const config = {
                 lib: {
                     www: {
                         template: true,
@@ -418,6 +425,7 @@ describe('create end-to-end', function () {
                     }
                 }
             };
+
             return create(project, appId, appName, config, events)
                 .then(checkSymNoConfig)
                 .catch(allowSymlinkErrorOnWindows);
@@ -426,22 +434,22 @@ describe('create end-to-end', function () {
     });
 });
 
-describe('when shit happens', function () {
-    it('should fail when dir is missing', function () {
+describe('when shit happens', () => {
+    it('should fail when dir is missing', () => {
         return expectRejection(
             create(null, appId, appName, {}, events),
             new CordovaError('Directory not specified')
         );
     });
 
-    it('should fail when dir already exists', function () {
+    it('should fail when dir already exists', () => {
         return expectRejection(
             create(__dirname, appId, appName, {}, events),
             new CordovaError('Path already exists and is not empty')
         );
     });
 
-    it('should fail when destination is inside template', function () {
+    it('should fail when destination is inside template', () => {
         const config = {
             lib: {
                 www: {
@@ -450,13 +458,14 @@ describe('when shit happens', function () {
             }
         };
         const destination = path.join(config.lib.www.url, 'destination');
+
         return expectRejection(
             create(destination, appId, appName, config, events),
             new CordovaError('inside the template')
         );
     });
 
-    it('should fail when fetch fails', function () {
+    it('should fail when fetch fails', () => {
         const config = {
             lib: {
                 www: {
@@ -468,6 +477,7 @@ describe('when shit happens', function () {
         const fetchError = new Error('Fetch fail');
         const failingFetch = jasmine.createSpy('failingFetch')
             .and.callFake(() => Promise.reject(fetchError));
+
         return expectRejection(
             createWith({ fetch: failingFetch })(project, appId, appName, config),
             fetchError
@@ -475,7 +485,7 @@ describe('when shit happens', function () {
 
     });
 
-    it('should fail when template does not exist', function () {
+    it('should fail when template does not exist', () => {
         const config = {
             lib: {
                 www: {
@@ -483,6 +493,7 @@ describe('when shit happens', function () {
                 }
             }
         };
+
         return expectRejection(
             create(project, appId, appName, config, events),
             new CordovaError('Could not find directory')
